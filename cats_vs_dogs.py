@@ -12,8 +12,11 @@ import matplotlib.pyplot as plt
 from sklearn.preprocessing import LabelEncoder
 from torch.utils.data.sampler import SubsetRandomSampler
 
+data_size = 50
+num_workers = 0
+
 def preprocess(image):
-    resize = transforms.Resize((32, 32))
+    resize = transforms.Resize((64, 64))
     image = resize(image)
     image = np.array(image)
     plt.imshow(image)
@@ -22,7 +25,7 @@ def preprocess(image):
     return image
 
 class CatsAndDogsDataset(torch.utils.data.Dataset):
-    def __init__(self, data_dir, data_size = 0, transforms = None):
+    def __init__(self, data_dir, label_source, data_size = 0):
         files = os.listdir(data_dir)
         files = [os.path.join(data_dir,x) for x in files]
         if data_size < 0 or data_size > len(files):
@@ -31,7 +34,7 @@ class CatsAndDogsDataset(torch.utils.data.Dataset):
             data_size = len(files)
         self.data_size = data_size
         self.files = random.sample(files, self.data_size)
-        self.transforms = transforms
+        self.label_source = label_source
 
     def __len__(self):
         return self.data_size
@@ -40,19 +43,19 @@ class CatsAndDogsDataset(torch.utils.data.Dataset):
         image_address = self.files[idx]
         image = Image.open(image_address)
         image = preprocess(image)
+        image = torch.Tensor(image)
+        image = transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))(image)
         file_name = image_address[:-4].split("/")[1]
         label_idx = int(file_name[4:])
-        label = labels['label'][label_idx]
-        image = image.astype(np.float32)
-        if self.transforms:
-            image = self.transforms(image)
+        label = self.label_source[label_idx]
+        label = torch.tensor(label).long()
         return image, label
 
 labels = pd.read_csv('train_labels.csv')
 lenc = LabelEncoder()
-labels['label']=lenc.fit_transform(labels['label'])
+labels_numeros = labels['label'] = lenc.fit_transform(labels['label'])
 
-train_set = CatsAndDogsDataset(data_dir = 'train/', transforms=None)
+train_set = CatsAndDogsDataset(data_dir = 'train/', label_source = labels_numeros, data_size = data_size)
 
 batch_size = 16
 scale = 0.1
@@ -66,27 +69,37 @@ train_indices, test_indices = indices[split:], indices[:split]
 train_sampler = SubsetRandomSampler(train_indices)
 test_sampler = SubsetRandomSampler(test_indices)
 
-train_loader = torch.utils.data.DataLoader(train_set, batch_size=batch_size, shuffle=False, sampler = train_sampler, num_workers=1)
-test_loader = torch.utils.data.DataLoader(train_set, batch_size=batch_size, shuffle=False, sampler = test_sampler, num_workers=1)
+train_loader = torch.utils.data.DataLoader(train_set, batch_size=batch_size, shuffle=False, sampler = train_sampler, num_workers=num_workers)
+test_loader = torch.utils.data.DataLoader(train_set, batch_size=batch_size, shuffle=False, sampler = test_sampler, num_workers=num_workers)
 
 class CatsAndDogsNet(nn.Module):
     def __init__(self):
         super(CatsAndDogsNet, self).__init__()
 
-        # Convultional network
-        self.conv1 = nn.Conv2d(3, 6, 5)
+        # Convultional Net
+
+        # Entrada: 64x64
+        # Salida: 60x60
+        self.conv1 = nn.Conv2d(3, 64, 5)
+
+        # Entrada: 60x60
+        # Salida: 30x30
         self.pool = nn.MaxPool2d(2, 2)
-        self.conv2 = nn.Conv2d(6, 16, 5)
+
+        # Entrada: 30x30
+        # Salida: 24x24
+        self.conv2 = nn.Conv2d(64, 32, 5)
 
         # Fully connected network
-        self.fc1 = nn.Linear(16 * 5 * 5, 120)
+        self.fc1 = nn.Linear(32 * 13 * 13, 120)
         self.fc2 = nn.Linear(120, 84)
         self.fc3 = nn.Linear(84, 2)
 
     def forward(self, x):
         x = self.pool(torch.relu(self.conv1(x)))
         x = self.pool(torch.relu(self.conv2(x)))
-        x = x.view(-1, 16 * 5 * 5)
+        # print(x.shape)
+        x = x.view(-1, 32 * 13 * 13)
         x = torch.relu(self.fc1(x))
         x = torch.relu(self.fc2(x))
         x = self.fc3(x)
@@ -163,9 +176,11 @@ validation_loss = []
 epochs = 100
 
 for epoch in range(0, epochs):
+    print("Training...")
     #Hacemos el train con los datos que salen del loader
     train_loss = train(model, train_loader, optimizer)
     
+    print("Testing...")
     #Probamos el nuevo entrenamiento sobre los datos de test
     test_loss, accuracy = test(model, test_loader)
     
