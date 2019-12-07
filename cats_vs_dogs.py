@@ -11,15 +11,6 @@ import torch.nn as nn
 from sklearn.preprocessing import LabelEncoder
 from torch.utils.data.sampler import SubsetRandomSampler
 
-cat = 'cat'
-dog = 'dog'
-
-train_images_dir = '/train'
-test_images_dir = '/test'
-
-cantidad_de_archivos = 0
-train_labels = 'asd'
-
 def preprocess(image):
     resize = transforms.Resize((32, 32))
     image = resize(image)
@@ -47,7 +38,7 @@ class CatsAndDogsDataset(torch.utils.data.Dataset):
         image = Image.open(image_address)
         image = preprocess(image)
         file_name = image_address[:-4].split("/")[1]
-        label_idx = int(file_name[4:])-1
+        label_idx = int(file_name[4:])
         label = labels['label'][label_idx]
         image = image.astype(np.float32)
         if self.transforms:
@@ -97,11 +88,14 @@ class CatsAndDogsNet(nn.Module):
     
 model = CatsAndDogsNet()
 
+training = False
+
 #Función que modela el entrenamiento de la red
 def train(model, data_loader, optimizer):
     #El modelo se debe poner en modo training
     model.train()
     train_loss = 0
+    training = True
     
     for batch, tensor in enumerate(data_loader):
         data, target = tensor
@@ -164,7 +158,7 @@ validation_loss = []
 epochs = 100
 
 for epoch in range(0, epochs):
-    
+    print("Starting Epoch #" + str(epoch))
     #Hacemos el train con los datos que salen del loader
     train_loss = train(model, train_loader, optimizer)
     
@@ -181,5 +175,5 @@ for epoch in range(0, epochs):
         print('Epoch {:d}: loss entrenamiento= {:.4f}, loss validacion= {:.4f}, exactitud={:.4%}'.format(epoch, train_loss, test_loss, accuracy))
 
 
-for param_tensor in model.state_dict():
-    print(param_tensor, "\n", model.state_dict()[param_tensor].numpy())
+#for param_tensor in model.state_dict():
+#    print(param_tensor, "\n", model.state_dict()[param_tensor].numpy())
