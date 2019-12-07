@@ -48,13 +48,13 @@ class CatsAndDogsDataset(torch.utils.data.Dataset):
         image = preprocess(image)
         file_name = image_address[:-4].split("/")[1]
         label_idx = int(file_name[4:])-1
-        label = 0 # labels['label'][label_idx]
+        label = labels['label'][label_idx]
         image = image.astype(np.float32)
         if self.transforms:
             image = self.transforms(image)
         return image, label
 
-labels = pd.read_csv('sample_submission.csv')
+labels = pd.read_csv('train_labels.csv')
 lenc = LabelEncoder()
 labels['label']=lenc.fit_transform(labels['label'])
 
