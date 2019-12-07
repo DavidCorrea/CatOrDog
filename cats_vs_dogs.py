@@ -7,6 +7,7 @@ import numpy as np
 import PIL.Image as Image
 import torch
 import torch.nn as nn
+import matplotlib.pyplot as plt
 
 from sklearn.preprocessing import LabelEncoder
 from torch.utils.data.sampler import SubsetRandomSampler
@@ -15,6 +16,8 @@ def preprocess(image):
     resize = transforms.Resize((32, 32))
     image = resize(image)
     image = np.array(image)
+    plt.imshow(image)
+    plt.pause(0.001)
     image = image.transpose(2,1,0)
     return image
 
@@ -70,12 +73,15 @@ class CatsAndDogsNet(nn.Module):
     def __init__(self):
         super(CatsAndDogsNet, self).__init__()
 
+        # Convultional network
         self.conv1 = nn.Conv2d(3, 6, 5)
         self.pool = nn.MaxPool2d(2, 2)
         self.conv2 = nn.Conv2d(6, 16, 5)
+
+        # Fully connected network
         self.fc1 = nn.Linear(16 * 5 * 5, 120)
         self.fc2 = nn.Linear(120, 84)
-        self.fc3 = nn.Linear(84, 10)
+        self.fc3 = nn.Linear(84, 2)
 
     def forward(self, x):
         x = self.pool(torch.relu(self.conv1(x)))
@@ -95,7 +101,6 @@ def train(model, data_loader, optimizer):
     #El modelo se debe poner en modo training
     model.train()
     train_loss = 0
-    training = True
     
     for batch, tensor in enumerate(data_loader):
         data, target = tensor
