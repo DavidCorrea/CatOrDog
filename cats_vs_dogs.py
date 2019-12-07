@@ -158,7 +158,6 @@ validation_loss = []
 epochs = 100
 
 for epoch in range(0, epochs):
-    print("Starting Epoch #" + str(epoch))
     #Hacemos el train con los datos que salen del loader
     train_loss = train(model, train_loader, optimizer)
     
@@ -170,10 +169,8 @@ for epoch in range(0, epochs):
     training_loss.append(train_loss)
     validation_loss.append(test_loss)
     
-    #Cada 10 iteraciones vamos imprimiendo nuestros resultados parciales
-    if (epoch) % 10 == 0:
-        print('Epoch {:d}: loss entrenamiento= {:.4f}, loss validacion= {:.4f}, exactitud={:.4%}'.format(epoch, train_loss, test_loss, accuracy))
-
+    #Imprimimos los resultados parciales
+    print('Epoch {:d}: loss entrenamiento= {:.4f}, loss validacion= {:.4f}, exactitud={:.4%}'.format(epoch, train_loss, test_loss, accuracy))
 
 #for param_tensor in model.state_dict():
 #    print(param_tensor, "\n", model.state_dict()[param_tensor].numpy())
