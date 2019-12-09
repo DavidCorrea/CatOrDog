@@ -12,15 +12,17 @@ import matplotlib.pyplot as plt
 from sklearn.preprocessing import LabelEncoder
 from torch.utils.data.sampler import SubsetRandomSampler
 
-data_size = 50
-num_workers = 0
+# Params
+train_images_path = 'train/'
+train_labels_filename = 'train_labels.csv'
+data_size = 200 # 0 to use every picture.
 
 def preprocess(image):
     resize = transforms.Resize((64, 64))
     image = resize(image)
     image = np.array(image)
-    plt.imshow(image)
-    plt.pause(0.001)
+    # plt.imshow(image)
+    # plt.pause(0.001)
     image = image.transpose(2,1,0)
     return image
 
@@ -51,11 +53,11 @@ class CatsAndDogsDataset(torch.utils.data.Dataset):
         label = torch.tensor(label).long()
         return image, label
 
-labels = pd.read_csv('train_labels.csv')
+labels = pd.read_csv(train_labels_filename)
 lenc = LabelEncoder()
 labels_numeros = labels['label'] = lenc.fit_transform(labels['label'])
 
-train_set = CatsAndDogsDataset(data_dir = 'train/', label_source = labels_numeros, data_size = data_size)
+train_set = CatsAndDogsDataset(data_dir = train_images_path, label_source = labels_numeros, data_size = data_size)
 
 batch_size = 16
 scale = 0.1
@@ -69,8 +71,8 @@ train_indices, test_indices = indices[split:], indices[:split]
 train_sampler = SubsetRandomSampler(train_indices)
 test_sampler = SubsetRandomSampler(test_indices)
 
-train_loader = torch.utils.data.DataLoader(train_set, batch_size=batch_size, shuffle=False, sampler = train_sampler, num_workers=num_workers)
-test_loader = torch.utils.data.DataLoader(train_set, batch_size=batch_size, shuffle=False, sampler = test_sampler, num_workers=num_workers)
+train_loader = torch.utils.data.DataLoader(train_set, batch_size=batch_size, shuffle=False, sampler = train_sampler, num_workers=0)
+test_loader = torch.utils.data.DataLoader(train_set, batch_size=batch_size, shuffle=False, sampler = test_sampler, num_workers=0)
 
 class CatsAndDogsNet(nn.Module):
     def __init__(self):
