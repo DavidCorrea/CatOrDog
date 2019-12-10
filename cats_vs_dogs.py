@@ -86,6 +86,7 @@ class CatsAndDogsNet(nn.Module):
         self.fc1 = nn.Linear(32 * 29 * 29, 120)
         self.fc2 = nn.Linear(120, 84)
         self.fc3 = nn.Linear(84, 2)
+        self.fc4 = nn.Softmax(1)
 
     def forward(self, x):
         x = self.pool(torch.relu(self.conv1(x)))
@@ -95,9 +96,12 @@ class CatsAndDogsNet(nn.Module):
         x = torch.relu(self.fc1(x))
         x = torch.relu(self.fc2(x))
         x = self.fc3(x)
+        x = self.fc4(x)
         return x
 
 model = CatsAndDogsNet()
+model.load_state_dict(torch.load('./david_correa_nn'))
+model.eval()
 
 def train(model, data_loader, optimizer):
     model.train()
@@ -158,7 +162,7 @@ validation_loss = []
 hits = []
 
 #Entrenamiento. Por default lo hacemos por 100 iteraciones (epochs) 
-epochs = 5
+epochs = 50
 for epoch in range(1, epochs + 1):
     #Hacemos el train con los datos que salen del loader
     train_loss = train(model, train_loader, optimizer)
@@ -174,9 +178,11 @@ for epoch in range(1, epochs + 1):
     
     print('Epoch {:d} Metrics - Training Loss: {:.4f} | Validation Loss: {:.4f} | Accuracy: {:.4%}'.format(epoch, train_loss, test_loss, accuracy))
 
-print('Final Metrics -  Accuracy: {:d} | Precision: {:.4f} | Recall: {:.4f} | F1 Score: {:.4f}'.format(
-    accuracy_score(list(test_dataset), training_loss), 
-    precision_score(list(test_dataset), training_loss), 
-    recall_score(list(test_dataset), training_loss), 
-    f1_score(list(test_dataset), training_loss)
-))
+torch.save(model.state_dict(), './david_correa_nn')
+
+#print('Final Metrics -  Accuracy: {:d} | Precision: {:.4f} | Recall: {:.4f} | F1 Score: {:.4f}'.format(
+#    accuracy_score(list(test_dataset), training_loss), 
+#    precision_score(list(test_dataset), training_loss), 
+#    recall_score(list(test_dataset), training_loss), 
+#    f1_score(list(test_dataset), training_loss)
+#))
