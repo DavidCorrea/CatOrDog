@@ -10,12 +10,13 @@ import torch.nn as nn
 import matplotlib.pyplot as plt
 
 from sklearn.preprocessing import LabelEncoder
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
 from torch.utils.data.sampler import SubsetRandomSampler
 
 # Params
 train_images_path = 'train/'
 train_labels_filename = 'train_labels.csv'
-data_size = 500
+data_size = 50
 
 # Transforms
 image_transforms = transforms.Compose([
@@ -64,12 +65,13 @@ labels_numeros = labels_encoder.fit_transform(labels['label'])
 cats_and_dogs_dataset = CatsAndDogsDataset(data_dir = train_images_path, label_source = labels_numeros, data_size = data_size, transform = image_transforms)
 
 batch_size = 84
-test_proportion = .2
-train_size = int((1-test_proportion) * len(cats_and_dogs_dataset))
-test_size = len(cats_and_dogs_dataset) - train_size
+test_proportion = .09
+dataset_length = len(cats_and_dogs_dataset)
+train_size = int((1 - test_proportion) * dataset_length)
+test_size = dataset_length - train_size
 
 # Datasets and Loaders
-train_dataset, test_dataset = torch.utils.data.random_split(cats_and_dogs_dataset, [train_size, test_size])
+train_dataset, test_dataset = torch.utils.data.random_split(cats_and_dogs_dataset, [train_size, test_size]) # labels_train, labels_test
 train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=8)
 test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=batch_size, shuffle=True, num_workers=8)
 
@@ -93,16 +95,15 @@ class CatsAndDogsNet(nn.Module):
         x = torch.relu(self.fc1(x))
         x = torch.relu(self.fc2(x))
         x = self.fc3(x)
-        return x  
+        return x
 
 model = CatsAndDogsNet()
 
 def train(model, data_loader, optimizer):
-    #El modelo se debe poner en modo training
     model.train()
     train_loss = 0
     
-    for batch, tensor in enumerate(data_loader):
+    for _, tensor in enumerate(data_loader):
         data, target = tensor
         #Se pasan los datos por la red y se calcula la función de loss
         optimizer.zero_grad()
@@ -119,13 +120,12 @@ def train(model, data_loader, optimizer):
     return avg_loss
 
 def test(model, data_loader):
-    #Ahora ponemos el modelo en modo evaluación
     model.eval()
     test_loss = 0
     correct = 0
 
     with torch.no_grad():
-        for batch, tensor in enumerate(data_loader):
+        for _, tensor in enumerate(data_loader):
             data, target = tensor
             #Dado el dato, obtenemos la predicción
             out = model(data)
@@ -133,79 +133,50 @@ def test(model, data_loader):
             #Calculamos el loss
             test_loss += loss_criteria(out, target).item()
 
-            #Calculamos la accuracy (exactitud) (Sumando el resultado como
-            #correcto si la predicción acertó)
+            #Calculamos la accuracy (exactitud) (Sumando el resultado como correcto si la predicción acertó)
             _, predicted = torch.max(out.data, 1)
-            correct += torch.sum(target==predicted).item()
+            correct += torch.sum(target == predicted).item()
             
     #Devolvemos la exactitud y loss promedio
     avg_accuracy = correct / len(data_loader.dataset)
     avg_loss = test_loss / len(data_loader.dataset)
-    return avg_loss, avg_accuracy
+    return avg_loss, avg_accuracy, correct
 
 #Definimos nuestro criterio de loss
 #Aquí usamos CrossEntropyLoss, que está poensado para clasificación
 loss_criteria = nn.CrossEntropyLoss()
 
-#Definimos nuestro optimizer
-#Aquí usamos Stochastic Gradient Descent (SGD) - Descenso por Gradiente Estocástico
+#Se define el optimizer usando Stochastic Gradient Descent (SGD) - Descenso por Gradiente Estocástico
 learning_rate = 0.01
 learning_momentum = 0.9
 optimizer = torch.optim.SGD(model.parameters(), lr=learning_rate, momentum=learning_momentum)
 
-#En estas listas vacías nos vamos guardando el loss para los datos de training
-#y validación en cada iteración.
+#En estas listas vacías nos vamos guardando el loss para los datos de training y validación en cada iteración.
 epoch_nums = []
 training_loss = []
 validation_loss = []
+hits = []
 
 #Entrenamiento. Por default lo hacemos por 100 iteraciones (epochs) 
-epochs = 100
+epochs = 5
 for epoch in range(1, epochs + 1):
     #Hacemos el train con los datos que salen del loader
     train_loss = train(model, train_loader, optimizer)
     
     #Probamos el nuevo entrenamiento sobre los datos de test
-    test_loss, accuracy = test(model, test_loader)
+    test_loss, accuracy, corrects = test(model, test_loader)
     
     #Guardamos en nuestras listas los datos de loss obtenidos
     epoch_nums.append(epoch)
     training_loss.append(train_loss)
     validation_loss.append(test_loss)
+    hits.append(corrects)
     
-    #Cada 10 iteraciones vamos imprimiendo nuestros resultados parciales
-    if (epoch) % 10 == 0:
-        print('Epoch {:d}: loss entrenamiento= {:.4f}, loss validacion= {:.4f}, exactitud={:.4%}'.format(epoch, train_loss, test_loss, accuracy))
+    print('Epoch {:d} Metrics - Training Loss: {:.4f} | Validation Loss: {:.4f} | Accuracy: {:.4%}'.format(epoch, train_loss, test_loss, accuracy))
 
-#Creamos la matriz de confusión, esta es parte del paquete scikit
-from sklearn.metrics import confusion_matrix
-
-#Ponemos el modelo en modo evaluación
-model.eval()
-
-#Hacemos las predicciones para los datos de test
-#Para eso, en primer lugar generamos la matriz de entradas y vector de 
-#resultados a partir del dataloader
-entradas = list()
-salidas = list()
-for batch,tensor in enumerate(test_loader):   
-    valor,salida = tensor
-    entradas.append(valor)
-    salidas.append(salida)
-#Se pasan a formato Tensor
-entradas = torch.cat(entradas)
-salidas = torch.cat(salidas)
-#Se obtienen las predicciones
-_, predicted = torch.max(model(entradas), 1)
-
-#Graficamos la matriz de confusión
-cm = confusion_matrix(salidas.numpy(), predicted.numpy())
-plt.imshow(cm, interpolation="nearest", cmap=plt.cm.Blues)
-plt.colorbar()
-tick_marks = np.arange(10)
-
-plt.xticks(tick_marks, labels_encoder.inverse_transform(range(2)), rotation=45)
-plt.yticks(tick_marks, labels_encoder.inverse_transform(range(2)))
-plt.xlabel("El modelo predijo que era")
-plt.ylabel("La imágen real era")
-plt.show()
+print('Final Metrics -  Accuracy: {:d} | Precision: {:.4f} | Recall: {:.4f} | F1 Score: {:.4f}'.format(
+    accuracy_score(list(test_dataset), training_loss), 
+    precision_score(list(test_dataset), training_loss), 
+    recall_score(list(test_dataset), training_loss), 
+    f1_score(list(test_dataset), training_loss)
+))
